@@ -58,7 +58,8 @@ handle = Entrez.esearch(db=corpus, term=searchstring,
 records = Entrez.read(handle)
 
 ids = records['IdList']
-print("Found {} articles using the following query string: {}".format(records["Count"], searchstring))
+print("Found {} articles using the following query string: {}".format(
+    records["Count"], searchstring))
 
 h = Entrez.efetch(db='pubmed', id=ids, rettype='medline', retmode='text')
 
