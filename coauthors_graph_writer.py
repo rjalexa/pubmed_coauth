@@ -14,18 +14,14 @@
 
 from Bio import Entrez  # to access the pubmed database
 from Bio import Medline
-# import matplotlib.pylab as plt # to draw some simple graph representation
-# import pandas as pd # maybe unnecessary as dropped using dataframes
-# import numpy as np # maybe unnecessary as dropped using numpy arrays
 import itertools  # to generate all coauthors combinations
 import networkx as nx  # to create, analyze and write the graph to a gexf format
 import time  # to generate a time stamped gexf filename
-# import collections # do not remember why I used this library
-# import os.path  # for the reading/writing of the data file # check if necessary
+from affiliation_parser import parse_affil  # depends on nltk and sklearn
 
 # use a file to save results if file does not exist;
 # if the file exists use it instead of fetching the data from pubmed;
-datafilename = "./author_correlation_file.txt"
+# datafilename = "./author_correlation_file.txt"
 
 # if os.path.isfile(datafilename):
 #    records = []
@@ -50,7 +46,8 @@ corpus = "pubmed"
 # searchstring='((("Pancreatitis"[Mesh] NOT "Pancreatitis, Alcoholic"[Mesh]) NOT "Pancreatitis, Chronic"[Mesh]) NOT "Pancreatitis, Graft"[Mesh]) AND Sphincterotomy, Endoscopic[Mesh] '
 # searchstring = '(Santoro, Armando[Full Author Name] OR Santoro, Armando[Full Investigator Name]) AND (Scorsetti, Marta[Full Author Name] OR Scorsetti, Marta[Full Investigator Name])'
 # searchstring = '(Scorsetti, Marta[Full Author Name] OR Scorsetti, Marta[Full Investigator Name])'
-searchstring = 'mastroianni cm[Author] OR Lichtner, Miriam[Full Author Name]'
+# searchstring = 'mastroianni cm[Author] OR Lichtner, Miriam[Full Author Name]'
+searchstring = '"Artificial Intelligence"[Mesh]'
 
 
 handle = Entrez.esearch(db=corpus, term=searchstring,
@@ -59,7 +56,7 @@ records = Entrez.read(handle)
 
 ids = records['IdList']
 print("Found {} articles using the following query string: {}".format(
-    records["Count"], searchstring))
+       records["Count"], searchstring))
 
 h = Entrez.efetch(db='pubmed', id=ids, rettype='medline', retmode='text')
 
@@ -86,11 +83,14 @@ for record in records:
     # keep only the first word in the string, the year
     yp = dp.split(' ', 1)[0]
     pi = record.get('PMID', '?')  # publication ID
+    af = record.get('AD', '?')  # affiliation string
+    affiliation = parse_affil(af)
+    country = affiliation['country']  # country of affiliation of first author; can be blank;
     # loop through each paper's author list and add edges to the graph with auth1-auth2 and PMID as attribute
     coauth_pairs_ls = list(itertools.combinations(au, 2))
     for pair in coauth_pairs_ls:
         auth1, auth2 = pair
-        G.add_edge(auth1, auth2, pmid=pi, year=yp)
+        G.add_edge(auth1, auth2, pmid=pi, year=yp, auth1_country=country)
 
 
 # print some Graph statistics
@@ -102,7 +102,6 @@ print("The degree of the 'Alexander RJ' node is {}.".format(
 # print(nx.degree_centrality(G))
 # print(nx.betweenness_centrality(G))
 # print(nx.eigenvector_centrality(G))
-# Find cliques
 gclique = list(nx.find_cliques(G))
 print("There are {} cliques in the graph.".format(len(gclique)))
 # Find connected components
@@ -110,8 +109,6 @@ gcomps = nx.connected_components(G)
 # gcomps is a generator so I am counting its output in a loop
 numwords = sum(1 for w in gcomps)
 print("There are {} connected component in the graph.".format(numwords))
-# G.edges(data=True)
-
 # now save the graph to a GEXF file to use with Gephi
 timestr = time.strftime("%Y%m%d-%H%M%S")
 filename = "coauthors" + timestr + ".gexf"
